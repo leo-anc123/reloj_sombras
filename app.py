@@ -14,10 +14,10 @@ def preparar_audios():
     golpes = {
         "drive": "Drive", 
         "reves": "Revés",
-        "top_drive": "Top de drive",
-        "top_reves": "Top de revés",
-        "corto_drive": "Corto de drive",
-        "corto_reves": "Corto de revés"
+        "top_drive": "Top drive",
+        "top_reves": "Top revés",
+        "corto_drive": "Corto drive",
+        "corto_reves": "Corto revés"
     }
     
     if not os.path.exists("audios"):
