@@ -5,19 +5,21 @@ import os
 import base64
 from gtts import gTTS
 
-# Configuración inicial de la página
 st.set_page_config(page_title="Reloj de Sombras TT", page_icon="🏓", layout="centered")
 
-# --- Preparación de Audio (Caché para no descargar múltiples veces) ---
 @st.cache_data
 def preparar_audios():
     golpes = {
+        # Audios optimizados (cortos)
         "drive": "Drive", 
         "reves": "Revés",
-        "top_drive": "Top drive",
-        "top_reves": "Top revés",
-        "corto_drive": "Corto drive",
-        "corto_reves": "Corto revés"
+        # Audios explícitos (solo para modo mixto)
+        "top_drive": "Top Drive",
+        "top_reves": "Top Revés",
+        "corto_drive": "Corto Drive",
+        "corto_reves": "Corto Revés",
+        # Audio de preparación
+        "countdown": "Inicio de entrenamiento en 3... 2... 1..."
     }
     
     if not os.path.exists("audios"):
@@ -42,12 +44,10 @@ def reproducir_audio(clave):
             <source src="data:audio/mp3;base64,{b64}" type="audio/mp3">
             </audio>
             """
-        # st.empty() permite sobreescribir el componente para no llenar la pantalla de reproductores
         st.empty().markdown(audio_html, unsafe_allow_html=True)
 
 # --- Interfaz de Usuario ---
-st.title("🏓 Reloj de Sombras")
-st.write("Entrenamiento de reacción y split-step.")
+st.title("🏓 Reloj de Sombras v2.0")
 
 st.sidebar.header("⚙️ Configuración")
 series = st.sidebar.number_input("Cantidad de Series", 1, 10, 3)
@@ -56,48 +56,60 @@ tiempo_base = st.sidebar.slider("Tiempo Base (segundos)", 1.0, 4.0, (1.5, 3.0))
 
 categoria = st.sidebar.selectbox(
     "Categoría de Trabajo",
-    ["Ataque (Tops y bloqueos)", "Corto", "Básico", "Mixto (Todo)"]
+    ["Básico", "Topspin", "Corto", "Mixto (Todo)"]
 )
 
-# Definir los arrays de golpes según la selección
+# --- Lógica de Contexto ---
+# Cada opción es una tupla: (archivo_de_audio_a_reproducir, texto_a_mostrar_en_pantalla)
 if categoria == "Básico":
-    opciones = ["drive", "reves"]
-elif categoria == "Ataque (Tops y bloqueos)":
-    opciones = ["top_drive", "top_reves", "drive", "reves"]
+    opciones = [("drive", "DRIVE"), ("reves", "REVÉS")]
+elif categoria == "Topspin":
+    # Audio corto, pero pantalla indica la variante técnica
+    opciones = [("drive", "TOPSPIN DRIVE"), ("reves", "TOPSPIN REVÉS")]
 elif categoria == "Corto":
-    opciones = ["corto_drive", "corto_reves"]
+    # Audio corto, pero pantalla indica la variante técnica
+    opciones = [("drive", "CORTO DRIVE"), ("reves", "CORTO REVÉS")]
 else:
-    opciones = ["drive", "reves", "top_drive", "top_reves", "corto_drive", "corto_reves"]
+    # Modo Mixto: Audio explícito completo y texto completo
+    opciones = [
+        ("drive", "DRIVE"), 
+        ("reves", "REVÉS"),
+        ("top_drive", "TOP DRIVE"),
+        ("top_reves", "TOP REVÉS"),
+        ("corto_drive", "CORTO DRIVE"),
+        ("corto_reves", "CORTO REVÉS")
+    ]
 
-# --- Lógica de Ejecución ---
+# --- Ejecución ---
 if st.button("🔴 COMENZAR RUTINA", use_container_width=True):
     zona_mensaje = st.empty()
     zona_golpe = st.empty()
     
     for serie in range(1, series + 1):
-        # Dificultad progresiva: reducimos 0.2s el intervalo por cada serie
         ajuste = (serie - 1) * 0.2
         t_min = max(0.5, tiempo_base[0] - ajuste)
         t_max = max(1.0, tiempo_base[1] - ajuste)
         
-        zona_mensaje.info(f"Serie {serie}/{series} - Prepárate...")
-        time.sleep(3) 
+        zona_mensaje.info(f"Serie {serie}/{series} - En posición...")
+        
+        # 1. Ejecutar la cuenta regresiva al inicio de la serie
+        reproducir_audio("countdown")
+        zona_golpe.warning("Iniciando en 3... 2... 1...")
+        time.sleep(4.5) # Espera a que termine la locución
         
         for golpe_num in range(1, golpes_por_serie + 1):
             espera = random.uniform(t_min, t_max)
-            zona_golpe.subheader("⏳ Esperando señal (Split-step listos)...")
+            zona_golpe.subheader("⏳ (Split-step listos)...")
             
             time.sleep(espera)
             
-            golpe_actual = random.choice(opciones)
+            # 2. Desempaquetar la tupla de audio y texto visual
+            clave_audio, texto_pantalla = random.choice(opciones)
             
-            # Mostrar visualmente el golpe en grande
-            zona_golpe.error(f"¡{golpe_actual.replace('_', ' ').upper()}!")
+            zona_golpe.error(f"¡{texto_pantalla}!")
+            reproducir_audio(clave_audio)
             
-            # Activar el sonido
-            reproducir_audio(golpe_actual)
-            
-            time.sleep(0.8) # Pausa mínima para que el audio termine antes del próximo ciclo
+            time.sleep(0.8) # Pausa mínima para no superponer audios
             
         if serie < series:
             zona_mensaje.success(f"✅ Serie {serie} terminada. Descanso de 10 segundos.")
