@@ -18,8 +18,8 @@ def cargar_audios_b64():
         "top_reves": "Top Revés",
         "corto_drive": "Corto Drive",
         "corto_reves": "Corto Revés",
-        "flick_drive": "Flick de Drive",
-        "flick_reves": "Flick de Revés",
+        "flick_drive": "Flick Drive",
+        "flick_reves": "Flick Revés",
         "pivot": "Pivot",
         "freno": "Quietos",
         "intro": "Inicio de entrenamiento",
@@ -33,7 +33,7 @@ def cargar_audios_b64():
         
     audios_codificados = {}
     for clave, texto in golpes.items():
-        archivo = f"audios/{clave}.mp3"
+        archivo = f"audios/{clave}_v2.mp3" if "flick" in clave else f"audios/{clave}.mp3"
         if not os.path.exists(archivo):
             tts = gTTS(text=texto, lang='es', tld='com.ar')
             tts.save(archivo)
