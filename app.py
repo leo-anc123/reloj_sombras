@@ -7,7 +7,7 @@ from gtts import gTTS
 
 st.set_page_config(page_title="Reloj de Sombras TT", page_icon="🏓", layout="wide")
 
-# --- 1. Preparación de Audios ---
+# --- 1. Preparación de Audios Separados para Sincronización Exacta ---
 @st.cache_data
 def preparar_audios():
     golpes = {
@@ -19,7 +19,11 @@ def preparar_audios():
         "corto_reves": "Corto Revés",
         "pivot": "Pivot",
         "freno": "Quietos",
-        "countdown": "Inicio de entrenamiento en 3... 2... 1..."
+        # Audios de cuenta regresiva separados para sincronizar con la pantalla
+        "intro": "Inicio de entrenamiento",
+        "3": "Tres",
+        "2": "Dos",
+        "1": "Uno"
     }
     
     if not os.path.exists("audios"):
@@ -33,59 +37,46 @@ def preparar_audios():
             
 preparar_audios()
 
-def reproducir_audio(clave):
-    """Inyecta el reproductor HTML5 oculto."""
+def obtener_html_audio(clave):
+    """Genera la etiqueta HTML5 de audio con un ID único para forzar reproducción."""
     archivo = f"audios/{clave}.mp3"
     with open(archivo, "rb") as f:
         data = f.read()
         b64 = base64.b64encode(data).decode()
-        audio_html = f"""
-            <audio autoplay="true">
-            <source src="data:audio/mp3;base64,{b64}" type="audio/mp3">
-            </audio>
-            """
-        st.empty().markdown(audio_html, unsafe_allow_html=True)
+        # Se añade un valor aleatorio (timestamp) para que el navegador siempre reproduzca aunque se repita el golpe
+        uid = random.randint(1, 1000000)
+        return f'<audio id="audio_{uid}" autoplay="true"><source src="data:audio/mp3;base64,{b64}" type="audio/mp3"></audio>'
 
-# --- 2. Motor Gráfico del Tablero Visual (CSS Dinámico) ---
+# --- 2. Motor Gráfico sin Indentación (Evita el bug de Markdown en Streamlit) ---
 def renderizar_tablero(color_fondo, icono, texto, subtexto=""):
-    """Crea una tarjeta gigante de alto contraste para ver desde lejos."""
-    html_code = f"""
-    <div style="
-        background-color: {color_fondo};
-        height: 65vh;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        border-radius: 25px;
-        box-shadow: 0 10px 25px rgba(0,0,0,0.4);
-        transition: background-color 0.05s ease;
-        padding: 20px;
-        text-align: center;
-        border: 4px solid rgba(255,255,255,0.2);
-    ">
-        <div style="font-size: 9rem; line-height: 1; margin-bottom: 10px;">{icono}</div>
-        <div style="font-size: 4rem; font-weight: 900; color: white; font-family: sans-serif; text-transform: uppercase; letter-spacing: 2px; text-shadow: 2px 2px 8px rgba(0,0,0,0.5);">
-            {texto}
-        </div>
-        <div style="font-size: 1.8rem; font-weight: 600; color: rgba(255,255,255,0.9); margin-top: 10px; font-family: sans-serif;">
-            {subtexto}
-        </div>
-    </div>
-    """
+    """Crea la tarjeta visual en una estructura limpia sin espacios de sangría."""
+    bloque_texto = (
+        f'<div style="font-size: 4rem; font-weight: 900; color: white; font-family: sans-serif; '
+        f'text-transform: uppercase; letter-spacing: 2px; text-shadow: 2px 2px 8px rgba(0,0,0,0.5);">{texto}</div>'
+        if texto else ""
+    )
+    
+    html_code = (
+        f'<div style="background-color: {color_fondo}; height: 65vh; display: flex; flex-direction: column; '
+        f'justify-content: center; align-items: center; border-radius: 25px; box-shadow: 0 10px 25px rgba(0,0,0,0.4); '
+        f'padding: 20px; text-align: center; border: 4px solid rgba(255,255,255,0.2);">'
+        f'<div style="font-size: 9rem; line-height: 1; margin-bottom: 10px;">{icono}</div>'
+        f'{bloque_texto}'
+        f'<div style="font-size: 1.8rem; font-weight: 600; color: rgba(255,255,255,0.9); margin-top: 10px; font-family: sans-serif;">{subtexto}</div>'
+        f'</div>'
+    )
     return html_code
 
-# --- 3. Base de Datos de Estímulos Visuales y Auditivos ---
-# Diccionario con toda la configuración visual de cada golpe
+# --- 3. Catálogo de Estímulos ---
 CATALOGO_ESTIMULOS = {
-    "drive":       {"audio": "drive",       "texto": "DRIVE",       "icono": "➡️", "color": "#E65100"}, # Naranja
-    "reves":       {"audio": "reves",       "texto": "REVÉS",       "icono": "⬅️", "color": "#BF360C"}, # Naranja oscuro
-    "top_drive":   {"audio": "top_drive",   "texto": "TOP DRIVE",   "icono": "↗️", "color": "#D32F2F"}, # Rojo intenso
-    "top_reves":   {"audio": "top_reves",   "texto": "TOP REVÉS",   "icono": "↖️", "color": "#B71C1C"}, # Rojo sangre
-    "corto_drive": {"audio": "corto_drive", "texto": "CORTO DRIVE", "icono": "↘️", "color": "#1976D2"}, # Azul
-    "corto_reves": {"audio": "corto_reves", "texto": "CORTO REVÉS", "icono": "↙️", "color": "#0D47A1"}, # Azul marino
-    "pivot":       {"audio": "pivot",       "texto": "PIVOT DRIVE", "icono": "🔄", "color": "#F57F17"}, # Amarillo/Oro
-    "freno":       {"audio": "freno",       "texto": "¡QUIETO!",    "icono": "✋", "color": "#2E7D32"}  # Verde (Inhibición)
+    "drive":       {"audio": "drive",       "texto": "DRIVE",       "icono": "➡️", "color": "#E65100"},
+    "reves":       {"audio": "reves",       "texto": "REVÉS",       "icono": "⬅️", "color": "#BF360C"},
+    "top_drive":   {"audio": "top_drive",   "texto": "TOP DRIVE",   "icono": "↗️", "color": "#D32F2F"},
+    "top_reves":   {"audio": "top_reves",   "texto": "TOP REVÉS",   "icono": "↖️", "color": "#B71C1C"},
+    "corto_drive": {"audio": "corto_drive", "texto": "CORTO DRIVE", "icono": "↘️", "color": "#1976D2"},
+    "corto_reves": {"audio": "corto_reves", "texto": "CORTO REVÉS", "icono": "↙️", "color": "#0D47A1"},
+    "pivot":       {"audio": "pivot",       "texto": "PIVOT DRIVE", "icono": "🔄", "color": "#F57F17"},
+    "freno":       {"audio": "freno",       "texto": "¡QUIETO!",    "icono": "✋", "color": "#2E7D32"}
 }
 
 # --- 4. Barra Lateral de Configuración ---
@@ -125,12 +116,11 @@ else:
     claves_activas = ["drive", "reves", "top_drive", "top_reves", "corto_drive", "corto_reves", "pivot"]
     forzar_audio_corto = False
 
-# Si activó la trampa de inhibición, agregamos el "freno" con menor probabilidad
 if incluir_freno:
     claves_activas.append("freno")
 
 # --- 6. Interfaz Principal ---
-st.title("🏓 Reloj de Sombras v3.0 — Reacción Visual")
+st.title("🏓 Reloj de Sombras v3.1 — Reacción Visual")
 
 with st.expander("📖 Ver Leyenda de Colores y Flechas"):
     st.markdown("""
@@ -141,10 +131,9 @@ with st.expander("📖 Ver Leyenda de Colores y Flechas"):
     * 🟩 **VERDE (`✋`):** ¡Freno! Haz el split-step pero congélate sin sacar el brazo.
     """)
 
-zona_estado = st.empty()
 zona_tablero = st.empty()
+zona_audio = st.empty()
 
-# Mostrar tablero en estado de reposo antes de empezar
 zona_tablero.markdown(
     renderizar_tablero("#1E1E2E", "🏓", "LISTO PARA ENTRENAR", "Presiona el botón de abajo para iniciar"),
     unsafe_allow_html=True
@@ -157,31 +146,38 @@ if st.button("🔴 COMENZAR ENTRENAMIENTO", use_container_width=True):
         t_min = max(0.6, tiempo_base[0] - ajuste)
         t_max = max(1.0, tiempo_base[1] - ajuste)
         
-        # Cuenta regresiva
-        reproducir_audio("countdown")
+        # 1. Aviso de Preparación Sincronizado
+        zona_tablero.markdown(
+            renderizar_tablero("#37474F", "🏓", "EN POSICIÓN...", f"Serie {serie} de {series}"),
+            unsafe_allow_html=True
+        )
+        zona_audio.markdown(obtener_html_audio("intro"), unsafe_allow_html=True)
+        time.sleep(2.2)
+        
+        # 2. Cuenta regresiva 3, 2, 1 exactamente sincronizada audio + imagen
         for seg in ["3", "2", "1"]:
             zona_tablero.markdown(
-                renderizar_tablero("#37474F", "⏱️", f"PREPARADO... {seg}", f"Serie {serie} de {series}"),
+                renderizar_tablero("#263238", "⏱️", f"¡{seg}!", f"Serie {serie} de {series}"),
                 unsafe_allow_html=True
             )
-            time.sleep(1.3)
+            zona_audio.markdown(obtener_html_audio(seg), unsafe_allow_html=True)
+            time.sleep(1.0)
             
         for golpe_num in range(1, golpes_por_serie + 1):
-            # 1. Pantalla neutra (Espera en posición base / Split-Step)
+            # Pantalla neutra (Split-Step)
             espera = random.uniform(t_min, t_max)
             zona_tablero.markdown(
-                renderizar_tablero("#121212", "⚡", "SPLIT-STEP", f"Golpe {golpe_num}/{golpes_por_serie}"),
+                renderizar_tablero("#121212", "⚡", "" if ocultar_texto else "SPLIT-STEP", f"Golpe {golpe_num}/{golpes_por_serie}"),
                 unsafe_allow_html=True
             )
             time.sleep(espera)
             
-            # 2. Elegir golpe y obtener sus propiedades visuales
+            # Elegir golpe
             clave_elegida = random.choice(claves_activas)
             datos_golpe = CATALOGO_ESTIMULOS[clave_elegida]
-            
             texto_mostrar = "" if ocultar_texto else datos_golpe["texto"]
             
-            # 3. Impacto Visual (Flash de color y flecha)
+            # Impacto Visual
             zona_tablero.markdown(
                 renderizar_tablero(
                     datos_golpe["color"], 
@@ -192,16 +188,17 @@ if st.button("🔴 COMENZAR ENTRENAMIENTO", use_container_width=True):
                 unsafe_allow_html=True
             )
             
-            # 4. Impacto Auditivo (si corresponde según el modo elegido)
+            # Impacto Auditivo (solo si no está en Modo Silencioso)
             if modo_estimulo != "👁️ Solo Visual (Silencioso)":
                 if forzar_audio_corto and clave_elegida in ["top_drive", "corto_drive"]:
-                    reproducir_audio("drive")
+                    clave_sonido = "drive"
                 elif forzar_audio_corto and clave_elegida in ["top_reves", "corto_reves"]:
-                    reproducir_audio("reves")
+                    clave_sonido = "reves"
                 else:
-                    reproducir_audio(datos_golpe["audio"])
+                    clave_sonido = datos_golpe["audio"]
+                    
+                zona_audio.markdown(obtener_html_audio(clave_sonido), unsafe_allow_html=True)
             
-            # Tiempo que permanece el color en pantalla antes de volver a negro
             time.sleep(0.85)
             
         if serie < series:
