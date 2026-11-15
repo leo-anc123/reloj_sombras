@@ -1,0 +1,673 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Entrenador de reacción y footwork para tenis de mesa con estímulos visuales, de voz o híbridos.">
+<meta name="theme-color" content="#0f1315">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%230f1315'/%3E%3Ccircle cx='50' cy='50' r='26' fill='none' stroke='%23e5484d' stroke-width='9'/%3E%3Cpath d='M50 34V50L61 57' fill='none' stroke='%23e5484d' stroke-width='9' stroke-linecap='round'/%3E%3C/svg%3E">
+<title>Reloj de Sombras</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;800&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: un tablero grande de estímulos a la izquierda, panel de configuración a la derecha; en celular el tablero va primero. */
+:root {
+  --bg: #0f1315;
+  --surface: #171d20;
+  --surface-2: #1f2629;
+  --line: #2b3438;
+  --fg: #e9eeef;
+  --muted: #8c9a9f;
+  --accent: #e5484d;
+  --accent-fg: #ffffff;
+  --stage-idle: #1b2226;
+  --stage-split: #0b0e10;
+  --stage-rest: #0d4a41;
+  --stage-done: #1b5e20;
+  --on-stage: #ffffff;
+  --font-display: "Barlow Condensed", "Arial Narrow", Impact, sans-serif;
+  --font-body: "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #f2f5f5; --surface: #ffffff; --surface-2: #e8edee; --line: #d3dbdd;
+    --fg: #11181b; --muted: #5b6b70; color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --bg: #f2f5f5; --surface: #ffffff; --surface-2: #e8edee; --line: #d3dbdd;
+  --fg: #11181b; --muted: #5b6b70; color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg);
+  font-family: var(--font-body); font-size: 15px; line-height: 1.45;
+  padding-block: 20px 40px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 3px solid var(--fg); outline-offset: 2px; }
+
+.app { max-width: 1240px; margin: 0 auto; display: grid; gap: 24px; }
+
+/* Header */
+.top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.brand { font-family: var(--font-display); font-weight: 800; font-size: 2rem; letter-spacing: .02em; text-transform: uppercase; line-height: 1; margin: 0; }
+.brand span { color: var(--accent); }
+.tag { font-family: var(--font-mono); font-size: .75rem; color: var(--muted); letter-spacing: .04em; text-transform: uppercase; }
+
+.layout { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 24px; align-items: start; }
+@media (max-width: 920px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+
+/* Stage */
+.stage {
+  --stim: var(--stage-idle);
+  position: relative; display: grid; grid-template-rows: auto 1fr auto;
+  min-height: clamp(380px, 64vh, 660px);
+  background: var(--stim); color: var(--on-stage);
+  border-radius: 20px; overflow: hidden; isolation: isolate;
+}
+.stage:fullscreen { border-radius: 0; min-height: 100vh; }
+.stage-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 14px 16px; position: relative; z-index: 2; }
+.chip { font-family: var(--font-mono); font-size: .8rem; letter-spacing: .06em; text-transform: uppercase; background: rgba(0,0,0,.28); padding: 5px 10px; border-radius: 6px; min-height: 28px; display: inline-flex; align-items: center; }
+.chip:empty { visibility: hidden; }
+.icon-btn { background: rgba(0,0,0,.28); border: 0; border-radius: 6px; width: 34px; height: 28px; display: inline-grid; place-items: center; color: var(--on-stage); }
+.icon-btn:hover { background: rgba(0,0,0,.45); }
+.stage-center { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; text-align: center; padding: 8px 16px; min-width: 0; }
+.stage-center.pop .ico { animation: pop .14s ease-out; }
+@keyframes pop { from { transform: scale(.82); opacity: .6; } to { transform: scale(1); opacity: 1; } }
+.ico { width: clamp(120px, 24vw, 210px); height: clamp(120px, 24vw, 210px); color: var(--on-stage); }
+.ico svg { width: 100%; height: 100%; display: block; fill: none; stroke: currentColor; stroke-width: 7; stroke-linecap: round; stroke-linejoin: round; }
+.ico.big-num { display: grid; place-items: center; font-family: var(--font-display); font-weight: 800; font-size: clamp(7rem, 22vw, 13rem); line-height: 1; width: auto; height: auto; }
+.word { font-family: var(--font-display); font-weight: 800; text-transform: uppercase; letter-spacing: .03em; line-height: .95; font-size: clamp(2.6rem, 8.5vw, 6rem); text-shadow: 0 2px 10px rgba(0,0,0,.35); text-wrap: balance; overflow-wrap: anywhere; }
+.word:empty { display: none; }
+.sub { font-family: var(--font-mono); font-size: clamp(.85rem, 2vw, 1.05rem); letter-spacing: .05em; opacity: .88; text-transform: uppercase; }
+.stage-bottom { position: relative; z-index: 2; display: grid; gap: 12px; padding: 12px 16px 16px; }
+.bar { height: 6px; border-radius: 3px; background: rgba(0,0,0,.3); overflow: hidden; }
+.bar > i { display: block; height: 100%; width: 0%; background: var(--on-stage); transition: width .15s linear; }
+.controls { display: flex; gap: 10px; flex-wrap: wrap; }
+.btn { border: 0; border-radius: 12px; padding: 14px 22px; font-weight: 600; font-size: 1.05rem; display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 52px; }
+.btn.primary { background: var(--accent); color: var(--accent-fg); flex: 1 1 220px; letter-spacing: .02em; }
+.btn.primary:hover { filter: brightness(1.08); }
+.btn.ghost { background: rgba(0,0,0,.35); color: var(--on-stage); flex: 1 1 140px; }
+.btn.ghost:hover { background: rgba(0,0,0,.5); }
+.dot { width: 12px; height: 12px; border-radius: 50%; background: currentColor; }
+.stage.paused .stage-center { opacity: .35; }
+.pause-banner { position: absolute; inset: 0; display: none; place-items: center; z-index: 3; font-family: var(--font-display); font-weight: 800; font-size: 4rem; letter-spacing: .1em; text-transform: uppercase; background: rgba(0,0,0,.35); pointer-events: none; }
+.stage.paused .pause-banner { display: grid; }
+
+/* Panel */
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 6px 18px 18px; display: grid; gap: 0; min-width: 0; }
+.panel.locked { opacity: .55; pointer-events: none; }
+.sec { padding-block: 16px; border-bottom: 1px solid var(--line); display: grid; gap: 12px; }
+.sec:last-child { border-bottom: 0; padding-bottom: 0; }
+.sec h2 { margin: 0; font-family: var(--font-mono); font-weight: 500; font-size: .72rem; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; background: var(--surface-2); padding: 4px; border-radius: 10px; }
+.seg label { position: relative; }
+.seg input { position: absolute; opacity: 0; inset: 0; }
+.seg span { display: grid; place-items: center; text-align: center; padding: 9px 4px; border-radius: 7px; font-size: .84rem; font-weight: 500; line-height: 1.2; min-height: 48px; cursor: pointer; }
+.seg input:checked + span { background: var(--fg); color: var(--bg); }
+.seg input:focus-visible + span { outline: 3px solid var(--accent); outline-offset: 1px; }
+select, .stepper input { width: 100%; background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; min-height: 44px; }
+select { min-width: 0; }
+.keys { display: flex; flex-wrap: wrap; gap: 6px; }
+.key { display: inline-flex; align-items: center; gap: 6px; font-size: .78rem; background: var(--surface-2); border-radius: 999px; padding: 3px 10px 3px 4px; }
+.key i { width: 18px; height: 18px; border-radius: 50%; display: block; }
+.switch { display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: center; cursor: pointer; }
+.switch input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.switch .track { width: 42px; height: 24px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--line); position: relative; transition: background .15s; }
+.switch .track::after { content: ""; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: var(--muted); transition: transform .15s, background .15s; }
+.switch input:checked + .track { background: var(--accent); border-color: var(--accent); }
+.switch input:checked + .track::after { transform: translateX(18px); background: #fff; }
+.switch input:focus-visible + .track { outline: 3px solid var(--fg); outline-offset: 2px; }
+.switch small { display: block; color: var(--muted); font-size: .78rem; line-height: 1.3; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.field { display: grid; gap: 6px; min-width: 0; }
+.field > span, .range > span { font-size: .8rem; color: var(--muted); }
+.stepper { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; gap: 6px; }
+.stepper button { background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; font-size: 1.2rem; min-height: 44px; }
+.stepper input { text-align: center; font-family: var(--font-mono); -moz-appearance: textfield; padding-inline: 4px; }
+.stepper input::-webkit-outer-spin-button, .stepper input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.range { display: grid; gap: 4px; }
+.range > div { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.range output { font-family: var(--font-mono); font-size: .82rem; }
+input[type="range"] { width: 100%; accent-color: var(--accent); min-height: 28px; }
+.mini { background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; min-height: 44px; font-weight: 500; }
+.mini:hover { border-color: var(--muted); }
+.note { color: var(--muted); font-size: .8rem; margin: 0; }
+.est { font-family: var(--font-mono); font-size: .8rem; color: var(--muted); }
+
+/* Legend / summary */
+.block { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 18px; display: grid; gap: 14px; }
+.block h2 { margin: 0; font-family: var(--font-display); font-weight: 800; font-size: 1.4rem; text-transform: uppercase; letter-spacing: .03em; }
+.legend { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; }
+.leg { display: grid; grid-template-columns: 52px 1fr; gap: 12px; align-items: center; background: var(--surface-2); border-radius: 12px; padding: 10px; min-width: 0; }
+.leg .sw { width: 52px; height: 52px; border-radius: 10px; display: grid; place-items: center; color: #fff; }
+.leg .sw svg { width: 36px; height: 36px; fill: none; stroke: currentColor; stroke-width: 7; stroke-linecap: round; stroke-linejoin: round; }
+.leg b { display: block; font-size: .92rem; }
+.leg p { margin: 0; color: var(--muted); font-size: .8rem; line-height: 1.3; }
+.metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
+.metric { background: var(--surface-2); border-radius: 12px; padding: 12px 14px; }
+.metric b { display: block; font-family: var(--font-display); font-weight: 800; font-size: 2.2rem; line-height: 1; font-variant-numeric: tabular-nums; }
+.metric span { font-size: .75rem; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; font-family: var(--font-mono); }
+.dist { display: grid; gap: 8px; }
+.dist-row { display: grid; grid-template-columns: minmax(96px, 150px) 1fr 34px; gap: 10px; align-items: center; font-size: .85rem; }
+.dist-row .t { height: 12px; background: var(--surface-2); border-radius: 6px; overflow: hidden; }
+.dist-row .t i { display: block; height: 100%; border-radius: 6px; }
+.dist-row em { font-style: normal; font-family: var(--font-mono); text-align: right; font-variant-numeric: tabular-nums; }
+.hist { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.hist li { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; font-size: .85rem; padding: 8px 12px; background: var(--surface-2); border-radius: 8px; }
+.hist li span:last-child { font-family: var(--font-mono); color: var(--muted); font-size: .78rem; }
+.foot { color: var(--muted); font-size: .78rem; text-align: center; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+@media (prefers-reduced-motion: reduce) { .stage-center.pop .ico { animation: none; } .bar > i { transition: none; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <h1 class="brand">Reloj de <span>Sombras</span></h1>
+    <span class="tag">Reacción · Footwork · Split-step · Tenis de mesa</span>
+  </header>
+
+  <div class="layout">
+    <section>
+      <div class="stage" id="stage" aria-label="Tablero de estímulos">
+        <div class="stage-top">
+          <span class="chip" id="chipSerie"></span>
+          <span class="chip" id="chipGolpe"></span>
+          <button class="icon-btn" id="btnFull" type="button" title="Pantalla completa (F)" aria-label="Pantalla completa">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+          </button>
+        </div>
+        <div class="stage-center" id="center">
+          <div class="ico" id="ico"></div>
+          <div class="word" id="word"></div>
+          <div class="sub" id="sub"></div>
+        </div>
+        <div class="stage-bottom">
+          <div class="bar" aria-hidden="true"><i id="prog"></i></div>
+          <div class="controls">
+            <button class="btn primary" id="btnStart" type="button"><span class="dot"></span> Comenzar entrenamiento</button>
+            <button class="btn ghost" id="btnPause" type="button" hidden>Pausar</button>
+            <button class="btn ghost" id="btnStop" type="button" hidden>Detener</button>
+          </div>
+        </div>
+        <div class="pause-banner" aria-hidden="true">Pausa</div>
+      </div>
+      <p class="note" style="margin-top:10px">Atajos: <b>Espacio</b> pausa o reanuda, <b>Esc</b> detiene, <b>F</b> pantalla completa. Dejá el celular apoyado a la altura de la mesa y subí el volumen.</p>
+    </section>
+
+    <aside class="panel" id="panel" aria-label="Configuración">
+      <div class="sec">
+        <h2>Modo de estímulo</h2>
+        <div class="seg" role="radiogroup" aria-label="Modo de estímulo">
+          <label><input type="radio" name="mode" value="visual"><span>Solo visual<br>silencioso</span></label>
+          <label><input type="radio" name="mode" value="hybrid" checked><span>Híbrido<br>visual + voz</span></label>
+          <label><input type="radio" name="mode" value="voice"><span>Solo voz<br>clásico</span></label>
+        </div>
+      </div>
+
+      <div class="sec">
+        <h2>Rutina</h2>
+        <select id="routine" aria-label="Categoría de trabajo"></select>
+        <div class="keys" id="routineKeys"></div>
+        <label class="switch"><input type="checkbox" id="trap"><span class="track"></span><span class="lbl">Trampa visual (verde, quieto)<small>Hacé el split-step y congelá el brazo.</small></span></label>
+        <div class="range" id="trapPWrap">
+          <div><span>Frecuencia de la trampa</span><output id="o_trapP"></output></div>
+          <input type="range" id="trapP" min="5" max="30" step="1">
+        </div>
+        <label class="switch"><input type="checkbox" id="hideText"><span class="track"></span><span class="lbl">Modo Pro: ocultar texto<small>Solo flechas y color.</small></span></label>
+        <label class="switch"><input type="checkbox" id="noRepeat"><span class="track"></span><span class="lbl">Evitar rachas<small>No repite el mismo golpe más de dos veces seguidas.</small></span></label>
+      </div>
+
+      <div class="sec">
+        <h2>Volumen y ritmo</h2>
+        <div class="grid2">
+          <div class="field"><span>Series</span>
+            <div class="stepper"><button type="button" data-for="series" data-d="-1" aria-label="Menos series">−</button><input id="series" type="number" min="1" max="10" inputmode="numeric"><button type="button" data-for="series" data-d="1" aria-label="Más series">+</button></div></div>
+          <div class="field"><span>Golpes por serie</span>
+            <div class="stepper"><button type="button" data-for="shots" data-d="-5" aria-label="Menos golpes">−</button><input id="shots" type="number" min="5" max="50" inputmode="numeric"><button type="button" data-for="shots" data-d="5" aria-label="Más golpes">+</button></div></div>
+        </div>
+        <div class="range"><div><span>Espera mínima entre golpes</span><output id="o_tMin"></output></div><input type="range" id="tMin" min="0.8" max="4" step="0.1"></div>
+        <div class="range"><div><span>Espera máxima entre golpes</span><output id="o_tMax"></output></div><input type="range" id="tMax" min="0.8" max="4" step="0.1"></div>
+        <div class="range"><div><span>Duración del estímulo en pantalla</span><output id="o_stimDur"></output></div><input type="range" id="stimDur" min="0.6" max="2" step="0.1"></div>
+        <div class="range"><div><span>Sobrecarga progresiva por serie</span><output id="o_overload"></output></div><input type="range" id="overload" min="0" max="0.3" step="0.05"></div>
+        <div class="range"><div><span>Descanso entre series</span><output id="o_rest"></output></div><input type="range" id="rest" min="5" max="60" step="5"></div>
+        <div class="est" id="est"></div>
+      </div>
+
+      <div class="sec">
+        <h2>Voz</h2>
+        <div class="field"><span>Voz</span><select id="voice" aria-label="Voz"></select></div>
+        <label class="switch"><input type="checkbox" id="shortVoice"><span class="track"></span><span class="lbl">Locución corta en rutinas de foco<small>Dice solo «Drive» o «Revés» para que no se pise con el golpe.</small></span></label>
+        <div class="range"><div><span>Velocidad</span><output id="o_rate"></output></div><input type="range" id="rate" min="0.8" max="1.6" step="0.05"></div>
+        <div class="range"><div><span>Tono</span><output id="o_pitch"></output></div><input type="range" id="pitch" min="0.8" max="1.3" step="0.05"></div>
+        <div class="range"><div><span>Volumen</span><output id="o_vol"></output></div><input type="range" id="vol" min="0.3" max="1" step="0.05"></div>
+        <button class="mini" id="btnTest" type="button">Probar voz</button>
+        <p class="note" id="voiceNote"></p>
+      </div>
+    </aside>
+  </div>
+
+  <section class="block" id="summary" hidden>
+    <h2>Resumen de la sesión</h2>
+    <div class="metrics" id="metrics"></div>
+    <div class="dist" id="dist"></div>
+  </section>
+
+  <section class="block">
+    <h2>Leyenda de colores y flechas</h2>
+    <div class="legend" id="legend"></div>
+  </section>
+
+  <section class="block" id="histBlock" hidden>
+    <h2>Últimas sesiones</h2>
+    <ul class="hist" id="hist"></ul>
+  </section>
+
+  <p class="foot">La voz usa las voces de tu dispositivo, sin conexión. Si sonás distinto en otro navegador, probá cambiar la voz en el panel.</p>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var $ = function (id) { return document.getElementById(id); };
+  var STOP = { stop: true };
+
+  /* ---------- Iconos ---------- */
+  function arrow(a) { return '<g transform="rotate(' + a + ' 50 50)"><path d="M14 50H84M60 26L84 50L60 74"/></g>'; }
+  function arrow2(a) { return '<g transform="rotate(' + a + ' 50 50)"><path d="M10 50H88M44 26L68 50L44 74M62 26L86 50L62 74"/></g>'; }
+  var ICONS = {
+    drive: arrow(0), reves: arrow(180),
+    top_drive: arrow(-45), top_reves: arrow(-135),
+    corto_drive: arrow(45), corto_reves: arrow(135),
+    flick_drive: arrow2(-45), flick_reves: arrow2(-135),
+    pivot: '<path d="M80 36A32 32 0 1 0 83 58"/><path d="M82 14V38H58"/>',
+    freno: '<path d="M35 12H65L88 35V65L65 88H35L12 65V35Z"/><path d="M32 50H68"/>',
+    ball: '<circle cx="50" cy="50" r="32"/><path d="M24 36Q50 50 24 64"/>',
+    bolt: '<path d="M56 10L30 54H48L42 90L70 44H52Z"/>',
+    rest: '<circle cx="50" cy="50" r="34"/><path d="M50 28V50L66 60"/>',
+    done: '<circle cx="50" cy="50" r="36"/><path d="M32 52L45 65L70 36"/>',
+    speaker: '<path d="M18 38H34L56 20V80L34 62H18Z"/><path d="M68 36Q78 50 68 64"/><path d="M78 26Q94 50 78 74"/>'
+  };
+  function svg(key) { return '<svg viewBox="0 0 100 100" aria-hidden="true">' + ICONS[key] + '</svg>'; }
+
+  /* ---------- Catálogo ---------- */
+  var STIM = {
+    drive:       { label: "Drive",       word: "DRIVE",       say: "Draiv",        color: "#E65100", icon: "drive",       desc: "Golpe plano o bloqueo básico." },
+    reves:       { label: "Revés",       word: "REVÉS",       say: "Revés",        color: "#BF360C", icon: "reves",       desc: "Golpe plano de revés." },
+    top_drive:   { label: "Top Drive",   word: "TOP DRIVE",   say: "Top draiv",    color: "#D32F2F", icon: "top_drive",   desc: "Topspin de derecha, media distancia." },
+    top_reves:   { label: "Top Revés",   word: "TOP REVÉS",   say: "Top revés",    color: "#B71C1C", icon: "top_reves",   desc: "Topspin de revés, media distancia." },
+    corto_drive: { label: "Corto Drive", word: "CORTO DRIVE", say: "Corto draiv",  color: "#1976D2", icon: "corto_drive", desc: "Paso adentro de la mesa, push o drop de derecha." },
+    corto_reves: { label: "Corto Revés", word: "CORTO REVÉS", say: "Corto revés",  color: "#0D47A1", icon: "corto_reves", desc: "Paso adentro de la mesa, push o drop de revés." },
+    flick_drive: { label: "Flick Drive", word: "FLICK DRIVE", say: "Flic draiv",   color: "#8E24AA", icon: "flick_drive", desc: "Ataque explosivo de muñeca sobre la mesa, derecha." },
+    flick_reves: { label: "Flick Revés", word: "FLICK REVÉS", say: "Flic revés",   color: "#4A148C", icon: "flick_reves", desc: "Ataque explosivo de muñeca sobre la mesa, revés." },
+    pivot:       { label: "Pivot Drive", word: "PIVOT DRIVE", say: "Pívot",        color: "#F57F17", icon: "pivot",       desc: "Pivotar en la esquina de revés para pegar de derecha." },
+    freno:       { label: "¡Quieto!",    word: "¡QUIETO!",    say: "¡Quieto!",     color: "#2E7D32", icon: "freno",       desc: "Split-step y congelarse, sin sacar el brazo." }
+  };
+  var SHORT = { top_drive: "drive", corto_drive: "drive", flick_drive: "drive", top_reves: "reves", corto_reves: "reves", flick_reves: "reves" };
+  var TONES = { drive: 520, reves: 390, top_drive: 660, top_reves: 330, corto_drive: 440, corto_reves: 300, flick_drive: 780, flick_reves: 260, pivot: 590, freno: 180 };
+  var PAN = { drive: 0.8, top_drive: 0.8, corto_drive: 0.8, flick_drive: 0.8, reves: -0.8, top_reves: -0.8, corto_reves: -0.8, flick_reves: -0.8, pivot: 0.4, freno: 0 };
+
+  var ROUTINES = [
+    { id: "basico",  group: "Foco", name: "Básico (Drive y Revés)",             keys: ["drive", "reves"], focus: true },
+    { id: "cortos",  group: "Foco", name: "Cortos (Push)",                      keys: ["corto_drive", "corto_reves"], focus: true },
+    { id: "flicks",  group: "Foco", name: "Flicks (ataque en mesa)",            keys: ["flick_drive", "flick_reves"], focus: true },
+    { id: "topspin", group: "Foco", name: "Topspin",                            keys: ["top_drive", "top_reves"], focus: true },
+    { id: "m1", group: "Mixto", name: "Nivel 1: Cortos + Básicos",              keys: ["corto_drive", "corto_reves", "drive", "reves"] },
+    { id: "m2", group: "Mixto", name: "Nivel 2: Cortos + Flicks (juego en red)", keys: ["corto_drive", "corto_reves", "flick_drive", "flick_reves"] },
+    { id: "m3", group: "Mixto", name: "Nivel 3: Cortos + Topspin (3ra pelota)", keys: ["corto_drive", "corto_reves", "top_drive", "top_reves"] },
+    { id: "m4", group: "Mixto", name: "Nivel 4: Cortos + Flicks + Básicos",     keys: ["corto_drive", "corto_reves", "flick_drive", "flick_reves", "drive", "reves"] },
+    { id: "m5", group: "Mixto", name: "Nivel 5: Cortos + Flicks + Topspin",     keys: ["corto_drive", "corto_reves", "flick_drive", "flick_reves", "top_drive", "top_reves"] },
+    { id: "pro", group: "Mixto", name: "Nivel PRO: todas las variantes + Pivot", keys: ["drive", "reves", "corto_drive", "corto_reves", "flick_drive", "flick_reves", "top_drive", "top_reves", "pivot"] }
+  ];
+
+  var DEFAULTS = {
+    mode: "hybrid", routine: "basico", trap: true, trapP: 12, hideText: false, noRepeat: true, shortVoice: true,
+    series: 3, shots: 20, tMin: 1.5, tMax: 2.8, stimDur: 1.1, overload: 0.15, rest: 10,
+    voice: "auto", rate: 1.1, pitch: 1, vol: 1
+  };
+  var UNITS = { trapP: "%", tMin: "s", tMax: "s", stimDur: "s", overload: "s", rest: "s", rate: "×", pitch: "", vol: "" };
+
+  /* ---------- Config: leer, escribir, guardar ---------- */
+  var cfg = {};
+  function load() {
+    var saved = {};
+    try { saved = JSON.parse(localStorage.getItem("rds-cfg") || "{}") || {}; } catch (e) { saved = {}; }
+    cfg = {};
+    Object.keys(DEFAULTS).forEach(function (k) { cfg[k] = (saved[k] !== undefined && typeof saved[k] === typeof DEFAULTS[k]) ? saved[k] : DEFAULTS[k]; });
+  }
+  function save() { try { localStorage.setItem("rds-cfg", JSON.stringify(cfg)); } catch (e) {} }
+  function fmt(k, v) {
+    var n = Number(v).toLocaleString("es-AR", { minimumFractionDigits: (k === "trapP" || k === "rest") ? 0 : (k === "overload" || k === "rate" || k === "pitch" || k === "vol") ? 2 : 1, maximumFractionDigits: 2 });
+    return n + (UNITS[k] ? (UNITS[k] === "%" ? "%" : " " + UNITS[k]) : "");
+  }
+  function pushToDom() {
+    var r = document.querySelector('input[name="mode"][value="' + cfg.mode + '"]'); if (r) r.checked = true;
+    $("routine").value = cfg.routine;
+    ["trap", "hideText", "noRepeat", "shortVoice"].forEach(function (k) { $(k).checked = cfg[k]; });
+    ["series", "shots"].forEach(function (k) { $(k).value = cfg[k]; });
+    Object.keys(UNITS).forEach(function (k) { $(k).value = cfg[k]; $("o_" + k).textContent = fmt(k, cfg[k]); });
+    $("trapPWrap").style.display = cfg.trap ? "" : "none";
+  }
+  function clamp(v, a, b) { return Math.min(b, Math.max(a, v)); }
+  function readFromDom() {
+    cfg.mode = (document.querySelector('input[name="mode"]:checked') || {}).value || "hybrid";
+    cfg.routine = $("routine").value;
+    ["trap", "hideText", "noRepeat", "shortVoice"].forEach(function (k) { cfg[k] = $(k).checked; });
+    cfg.series = clamp(parseInt($("series").value, 10) || 1, 1, 10);
+    cfg.shots = clamp(parseInt($("shots").value, 10) || 5, 5, 50);
+    Object.keys(UNITS).forEach(function (k) { cfg[k] = parseFloat($(k).value); });
+    if (cfg.tMax < cfg.tMin) { cfg.tMax = cfg.tMin; }
+    cfg.voice = $("voice").value;
+    save();
+  }
+  function onChange(ev) {
+    readFromDom();
+    if (ev && ev.target && (ev.target.id === "tMin" || ev.target.id === "tMax")) {
+      $("tMin").value = cfg.tMin; $("tMax").value = cfg.tMax;
+    }
+    pushToDom(); renderKeys(); renderIdle();
+  }
+
+  /* ---------- Rutinas en el DOM ---------- */
+  function buildRoutineSelect() {
+    var sel = $("routine"), groups = {};
+    ROUTINES.forEach(function (r) {
+      if (!groups[r.group]) { groups[r.group] = document.createElement("optgroup"); groups[r.group].label = r.group === "Foco" ? "Foco individual" : "Niveles mixtos"; sel.appendChild(groups[r.group]); }
+      var o = document.createElement("option"); o.value = r.id; o.textContent = r.name; groups[r.group].appendChild(o);
+    });
+  }
+  function currentRoutine() { return ROUTINES.filter(function (r) { return r.id === cfg.routine; })[0] || ROUTINES[0]; }
+  function renderKeys() {
+    var r = currentRoutine(), keys = r.keys.slice(); if (cfg.trap) keys.push("freno");
+    $("routineKeys").innerHTML = keys.map(function (k) { return '<span class="key"><i style="background:' + STIM[k].color + '"></i>' + STIM[k].label + '</span>'; }).join("");
+  }
+  function buildLegend() {
+    var order = ["top_drive", "flick_drive", "corto_drive", "drive", "pivot", "freno"];
+    $("legend").innerHTML = order.map(function (k) {
+      var s = STIM[k], pair = { top_drive: "Top Drive / Revés", flick_drive: "Flick Drive / Revés", corto_drive: "Corto Drive / Revés", drive: "Drive / Revés", pivot: "Pivot Drive", freno: "¡Quieto! (freno)" }[k];
+      var desc = { top_drive: "Topspin o ataque liftado, media distancia.", flick_drive: "Ataque explosivo de muñeca sobre la mesa.", corto_drive: "Corto o push dentro de la mesa.", drive: "Golpe plano o bloqueo básico.", pivot: "Pivotar en la esquina de revés para pegar de derecha.", freno: "Split-step y congelarse sin sacar el brazo." }[k];
+      return '<div class="leg"><div class="sw" style="background:' + s.color + '">' + svg(s.icon) + '</div><div><b>' + pair + '</b><p>' + desc + '</p></div></div>';
+    }).join("");
+  }
+
+  /* ---------- Voz ---------- */
+  var synth = ("speechSynthesis" in window) ? window.speechSynthesis : null;
+  var voices = [];
+  function scoreVoice(v) {
+    var s = 0, l = v.lang.replace("_", "-").toLowerCase();
+    if (l === "es-ar") s += 50; else if (l === "es-419") s += 45; else if (l === "es-mx") s += 40; else if (l === "es-us") s += 38; else if (l === "es-es") s += 30; else s += 20;
+    if (/natural|neural|online/i.test(v.name)) s += 25;
+    if (/google|premium|enhanced|siri|eloquence/i.test(v.name)) s += 15;
+    return s;
+  }
+  function loadVoices() {
+    if (!synth) { voices = []; } else { voices = synth.getVoices().filter(function (v) { return /^es/i.test(v.lang); }).sort(function (a, b) { return scoreVoice(b) - scoreVoice(a); }); }
+    var sel = $("voice"), prev = cfg.voice;
+    sel.innerHTML = "";
+    var o = document.createElement("option"); o.value = "auto"; o.textContent = voices.length ? "Automática (" + voices[0].name + ")" : "Automática"; sel.appendChild(o);
+    voices.forEach(function (v) { var x = document.createElement("option"); x.value = v.voiceURI; x.textContent = v.name + " · " + v.lang; sel.appendChild(x); });
+    var t = document.createElement("option"); t.value = "tones"; t.textContent = "Tonos (sin voz)"; sel.appendChild(t);
+    sel.value = Array.prototype.some.call(sel.options, function (op) { return op.value === prev; }) ? prev : "auto";
+    cfg.voice = sel.value;
+    $("voiceNote").textContent = voices.length
+      ? "Se prefieren voces naturales en español rioplatense o latino. Cambiá de voz si alguna suena robótica."
+      : "Este navegador no tiene voces en español. Se usarán tonos distintos para cada golpe: agudo a la derecha, grave a la izquierda.";
+  }
+  function pickVoice() {
+    if (cfg.voice === "tones") return "tones";
+    if (cfg.voice !== "auto") { var f = voices.filter(function (v) { return v.voiceURI === cfg.voice; })[0]; if (f) return f; }
+    return voices[0] || "tones";
+  }
+
+  /* ---------- Audio (tonos) ---------- */
+  var actx = null;
+  function audioCtx() {
+    try { if (!actx) { var C = window.AudioContext || window.webkitAudioContext; if (C) actx = new C(); } if (actx && actx.state === "suspended") actx.resume(); } catch (e) { actx = null; }
+    return actx;
+  }
+  function beep(freq, dur, pan) {
+    var c = audioCtx(); if (!c) return;
+    try {
+      var o = c.createOscillator(), g = c.createGain(), t = c.currentTime;
+      o.type = "triangle"; o.frequency.value = freq;
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(Math.max(0.05, cfg.vol * 0.5), t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      var last = g;
+      if (c.createStereoPanner) { var p = c.createStereoPanner(); p.pan.value = pan || 0; g.connect(p); last = p; }
+      o.connect(g); last.connect(c.destination); o.start(t); o.stop(t + dur + 0.02);
+    } catch (e) {}
+  }
+  function cue(key) { beep(TONES[key] || 440, key === "freno" ? 0.35 : 0.16, PAN[key] || 0); }
+
+  function speak(text, key) {
+    var v = pickVoice();
+    if (!synth || v === "tones") { if (key) cue(key); return; }
+    try {
+      synth.cancel();
+      var u = new SpeechSynthesisUtterance(text);
+      u.voice = v; u.lang = v.lang; u.rate = cfg.rate; u.pitch = cfg.pitch; u.volume = cfg.vol;
+      synth.speak(u);
+    } catch (e) { if (key) cue(key); }
+  }
+  function primeAudio() {
+    audioCtx();
+    if (synth) { try { var u = new SpeechSynthesisUtterance(" "); u.volume = 0; synth.speak(u); } catch (e) {} }
+  }
+
+  /* ---------- Tablero ---------- */
+  var stage = $("stage");
+  function show(o) {
+    stage.style.setProperty("--stim", o.bg);
+    var ico = $("ico");
+    if (o.num) { ico.className = "ico big-num"; ico.textContent = o.num; }
+    else { ico.className = "ico"; ico.innerHTML = svg(o.icon); }
+    $("word").textContent = o.word || "";
+    $("sub").textContent = o.sub || "";
+    var c = $("center"); c.classList.remove("pop"); void c.offsetWidth; c.classList.add("pop");
+  }
+  function chips(a, b) { $("chipSerie").textContent = a || ""; $("chipGolpe").textContent = b || ""; }
+  function progress(p) { $("prog").style.width = (clamp(p, 0, 1) * 100).toFixed(1) + "%"; }
+
+  function estimate() {
+    var avg = (cfg.tMin + cfg.tMax) / 2, total = 0, s;
+    for (s = 1; s <= cfg.series; s++) {
+      var aj = (s - 1) * cfg.overload;
+      var mn = Math.max(0.6, cfg.tMin - aj), mx = Math.max(mn + 0.2, cfg.tMax - aj);
+      total += 2.2 + 3 + cfg.shots * (((mn + mx) / 2) + cfg.stimDur);
+      if (s < cfg.series) total += cfg.rest;
+    }
+    return total;
+  }
+  function mmss(sec) { sec = Math.round(sec); var m = Math.floor(sec / 60), s = sec % 60; return m + ":" + (s < 10 ? "0" : "") + s; }
+  function renderIdle() {
+    $("est").textContent = cfg.series + " series × " + cfg.shots + " golpes · duración estimada " + mmss(estimate());
+    if (run) return;
+    show({ bg: "var(--stage-idle)", icon: "ball", word: "Listo para entrenar", sub: currentRoutine().name });
+  }
+
+  /* ---------- Motor ---------- */
+  var run = null;
+  function wait(ms, work) {
+    return new Promise(function (resolve, reject) {
+      var left = ms, last = performance.now();
+      var id = setInterval(function () {
+        var now = performance.now(), dt = now - last; last = now;
+        if (run.stop) { clearInterval(id); reject(STOP); return; }
+        if (!run.paused) { left -= dt; if (work) run.work += dt; }
+        if (left <= 0) { clearInterval(id); resolve(); }
+      }, 20);
+    });
+  }
+  function rand(a, b) { return a + Math.random() * (b - a); }
+  function pick(pool) {
+    var last = run.last, last2 = run.last2, k;
+    if (cfg.trap && last !== "freno" && Math.random() * 100 < cfg.trapP) { k = "freno"; }
+    else {
+      var tries = 0;
+      do { k = pool[Math.floor(Math.random() * pool.length)]; tries++; }
+      while (cfg.noRepeat && k === last && k === last2 && pool.length > 1 && tries < 12);
+    }
+    run.last2 = last; run.last = k;
+    return k;
+  }
+  var wakeLock = null;
+  function takeWake() { try { if (navigator.wakeLock && navigator.wakeLock.request) { navigator.wakeLock.request("screen").then(function (l) { wakeLock = l; }, function () {}); } } catch (e) {} }
+  function dropWake() { try { if (wakeLock) { wakeLock.release(); } } catch (e) {} wakeLock = null; }
+
+  function setRunningUI(on) {
+    $("btnStart").hidden = on; $("btnPause").hidden = !on; $("btnStop").hidden = !on;
+    $("panel").classList.toggle("locked", on);
+    if (on) { $("summary").hidden = true; }
+  }
+
+  async function session() {
+    if (run) return;
+    readFromDom();
+    var routine = currentRoutine(), pool = routine.keys.slice();
+    var useVoice = cfg.mode !== "visual", voiceOnly = cfg.mode === "voice";
+    run = { stop: false, paused: false, work: 0, counts: {}, done: 0, total: cfg.series * cfg.shots, last: null, last2: null };
+    setRunningUI(true); primeAudio(); takeWake();
+    var completed = false, s, g, k;
+    try {
+      for (s = 1; s <= cfg.series; s++) {
+        var aj = (s - 1) * cfg.overload;
+        var tmin = Math.max(0.6, cfg.tMin - aj), tmax = Math.max(tmin + 0.2, cfg.tMax - aj);
+        chips("Serie " + s + "/" + cfg.series, "");
+        show({ bg: "#37474F", icon: "ball", word: "En posición", sub: "Serie " + s + " de " + cfg.series });
+        if (useVoice) speak(s === 1 ? "Inicio de entrenamiento. En posición" : "Serie " + s + ". En posición");
+        await wait(2400);
+        var nums = [["3", "Tres"], ["2", "Dos"], ["1", "Uno"]];
+        for (k = 0; k < nums.length; k++) {
+          show({ bg: "#263238", num: nums[k][0], sub: "Serie " + s + " de " + cfg.series });
+          if (useVoice) speak(nums[k][1]);
+          await wait(1000);
+        }
+        for (g = 1; g <= cfg.shots; g++) {
+          chips("Serie " + s + "/" + cfg.series, "Golpe " + g + "/" + cfg.shots);
+          progress((g - 1) / cfg.shots);
+          show({ bg: "var(--stage-split)", icon: "bolt", word: cfg.hideText ? "" : "Split-step", sub: "Golpe " + g + " de " + cfg.shots });
+          await wait(rand(tmin, tmax) * 1000, true);
+          var key = pick(pool), st = STIM[key];
+          run.counts[key] = (run.counts[key] || 0) + 1;
+          if (useVoice) {
+            var sk = (cfg.shortVoice && routine.focus && SHORT[key]) ? SHORT[key] : key;
+            speak(STIM[sk].say, key);
+          }
+          if (voiceOnly) show({ bg: "var(--stage-idle)", icon: "speaker", word: cfg.hideText ? "" : st.word, sub: "Golpe " + g + " de " + cfg.shots });
+          else show({ bg: st.color, icon: st.icon, word: cfg.hideText ? "" : st.word, sub: "Golpe " + g + " de " + cfg.shots });
+          run.done++;
+          await wait(cfg.stimDur * 1000, true);
+        }
+        progress(1);
+        if (s < cfg.series) {
+          if (useVoice) speak("Descanso");
+          for (var d = cfg.rest; d > 0; d--) {
+            show({ bg: "var(--stage-rest)", icon: "rest", word: "Descanso: " + d + " s", sub: "Serie " + s + " completada" });
+            if (useVoice && d === 3) speak("Prepará");
+            await wait(1000);
+          }
+        }
+      }
+      completed = true;
+    } catch (e) { if (e !== STOP) { console.error(e); } }
+    var r = run; dropWake();
+    try { if (synth) synth.cancel(); } catch (e) {}
+    run = null; stage.classList.remove("paused"); setRunningUI(false);
+    $("btnPause").textContent = "Pausar"; chips("", ""); progress(0);
+    if (completed) {
+      show({ bg: "var(--stage-done)", icon: "done", word: "¡Entrenamiento terminado!", sub: "Excelente velocidad de reacción" });
+      if (useVoice) speak("Entrenamiento terminado");
+    } else {
+      show({ bg: "var(--stage-idle)", icon: "ball", word: "Sesión detenida", sub: r.done + " golpes realizados" });
+    }
+    if (r.done > 0) { renderSummary(r, routine, completed); }
+  }
+
+  function renderSummary(r, routine, completed) {
+    var traps = r.counts.freno || 0, strokes = r.done - traps;
+    $("metrics").innerHTML =
+      '<div class="metric"><b>' + r.done + '</b><span>Estímulos</span></div>' +
+      '<div class="metric"><b>' + strokes + '</b><span>Golpes</span></div>' +
+      '<div class="metric"><b>' + traps + '</b><span>Trampas</span></div>' +
+      '<div class="metric"><b>' + mmss(r.work / 1000) + '</b><span>Trabajo neto</span></div>';
+    var keys = routine.keys.slice(); if (traps || cfg.trap) keys.push("freno");
+    var max = Math.max.apply(null, keys.map(function (k) { return r.counts[k] || 0; }).concat([1]));
+    $("dist").innerHTML = keys.map(function (k) {
+      var n = r.counts[k] || 0;
+      return '<div class="dist-row"><span>' + STIM[k].label + '</span><div class="t"><i style="width:' + (n / max * 100).toFixed(0) + '%;background:' + STIM[k].color + '"></i></div><em>' + n + '</em></div>';
+    }).join("");
+    $("summary").hidden = false;
+    try {
+      var h = JSON.parse(localStorage.getItem("rds-hist") || "[]");
+      h.unshift({ ts: Date.now(), name: routine.name, done: r.done, work: Math.round(r.work / 1000), ok: completed });
+      localStorage.setItem("rds-hist", JSON.stringify(h.slice(0, 8)));
+    } catch (e) {}
+    renderHistory();
+  }
+  function renderHistory() {
+    var h = [];
+    try { h = JSON.parse(localStorage.getItem("rds-hist") || "[]") || []; } catch (e) { h = []; }
+    $("histBlock").hidden = !h.length;
+    $("hist").innerHTML = h.map(function (x) {
+      var d = new Date(x.ts), when = d.toLocaleDateString("es-AR", { day: "2-digit", month: "short" }) + " " + d.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
+      return '<li><span>' + x.name.replace(/</g, "&lt;") + (x.ok ? "" : " (detenida)") + '</span><span>' + when + " · " + x.done + " estímulos · " + mmss(x.work) + '</span></li>';
+    }).join("");
+  }
+
+  /* ---------- Eventos ---------- */
+  function togglePause() {
+    if (!run) return;
+    run.paused = !run.paused;
+    stage.classList.toggle("paused", run.paused);
+    $("btnPause").textContent = run.paused ? "Reanudar" : "Pausar";
+    if (run.paused) { try { if (synth) synth.cancel(); } catch (e) {} }
+  }
+  function stopRun() { if (run) { run.stop = true; } }
+  function fullscreen() {
+    try {
+      if (document.fullscreenElement) { document.exitFullscreen(); }
+      else if (stage.requestFullscreen) { stage.requestFullscreen().catch(function () {}); }
+    } catch (e) {}
+  }
+
+  function init() {
+    load();
+    buildRoutineSelect(); buildLegend();
+    pushToDom(); loadVoices(); readFromDom(); pushToDom(); renderKeys(); renderIdle(); renderHistory();
+    if (synth) { synth.onvoiceschanged = function () { loadVoices(); }; }
+
+    $("panel").addEventListener("input", onChange);
+    $("panel").addEventListener("change", onChange);
+    $("panel").addEventListener("click", function (ev) {
+      var b = ev.target.closest("button[data-for]"); if (!b) return;
+      var inp = $(b.getAttribute("data-for")), v = (parseInt(inp.value, 10) || 0) + parseInt(b.getAttribute("data-d"), 10);
+      inp.value = clamp(v, parseInt(inp.min, 10), parseInt(inp.max, 10)); onChange({ target: inp });
+    });
+    $("btnTest").addEventListener("click", function () { readFromDom(); primeAudio(); var r = currentRoutine(); speak(STIM[r.keys[0]].say, r.keys[0]); setTimeout(function () { speak(STIM[r.keys[r.keys.length - 1]].say, r.keys[r.keys.length - 1]); }, 1100); });
+    $("btnStart").addEventListener("click", session);
+    $("btnPause").addEventListener("click", togglePause);
+    $("btnStop").addEventListener("click", stopRun);
+    $("btnFull").addEventListener("click", fullscreen);
+    document.addEventListener("keydown", function (ev) {
+      var tag = (ev.target && ev.target.tagName) || "";
+      if (tag === "INPUT" || tag === "SELECT" || tag === "BUTTON" || tag === "TEXTAREA") return;
+      if (ev.code === "Space") { ev.preventDefault(); if (run) togglePause(); else session(); }
+      else if (ev.key === "Escape") { stopRun(); }
+      else if (ev.key === "f" || ev.key === "F") { fullscreen(); }
+    });
+    document.addEventListener("visibilitychange", function () { if (document.hidden && run && !run.paused) togglePause(); else if (!document.hidden && wakeLock === null && run) takeWake(); });
+  }
+  init();
+})();
+</script>
+</body>
+</html>

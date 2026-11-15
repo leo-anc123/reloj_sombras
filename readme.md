@@ -49,6 +49,15 @@ Al entrenar desplazamientos en solitario ("hacer sombras"), el jugador suele cae
 
 ---
 
+## 🌐 Versión web (sitio estático)
+
+Además de la app de Streamlit, el repositorio incluye una versión web independiente en `site/index.html`. No necesita servidor ni Python: usa las voces del navegador (Web Speech API) y guarda la configuración y el historial en el propio dispositivo.
+
+* **Probarla en local:** abrí `site/index.html` en el navegador, o corré `python -m http.server -d site 8000` y entrá a `http://localhost:8000`.
+* **Publicarla en Netlify:** `netlify.toml` ya indica que se publica la carpeta `site/`, sin paso de build.
+
+---
+
 ## 🛠️ Stack Tecnológico y Arquitectura
 
 * **Lenguaje:** Python
